@@ -1,0 +1,33 @@
+{
+  "name": "phantompkg",
+  "displayName": "PhantomPkg — Slopsquatting Detector",
+  "description": "Detects hallucinated / malicious Python package names before installation.",
+  "version": "0.1.0",
+  "publisher": "phantompkg",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Linters", "Other"],
+  "activationEvents": [
+    "onLanguage:python",
+    "workspaceContains:**/requirements.txt"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "phantompkg.scanFile",
+        "title": "PhantomPkg: Scan File"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
