@@ -33,6 +33,24 @@ function fileTypeFor(document: vscode.TextDocument): "source" | "requirements" {
     : "source";
 }
 
+async function readWhitelist(): Promise<string[]> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    return [];
+  }
+  const fileUri = vscode.Uri.joinPath(folders[0].uri, ".phantompkgignore.json");
+  try {
+    const raw = await vscode.workspace.fs.readFile(fileUri);
+    const parsed = JSON.parse(Buffer.from(raw).toString("utf8"));
+    if (Array.isArray(parsed)) {
+      return parsed.filter((e): e is string => typeof e === "string");
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── Core scan pipeline ─────────────────────────────────────────────────────
 
 async function runScan(document: vscode.TextDocument): Promise<void> {
@@ -44,7 +62,8 @@ async function runScan(document: vscode.TextDocument): Promise<void> {
 
   const content = document.getText();
   const fileType = fileTypeFor(document);
-  const result = await scanContent(content, fileType);
+  const whitelist = await readWhitelist();
+  const result = await scanContent(content, fileType, whitelist);
 
   if (result === null) {
     // Backend unreachable / timed out / errored.

@@ -113,9 +113,14 @@ _STDLIB: frozenset[str] = frozenset({
 })
 
 
+def _normalize_pypi(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
 def _resolve_dist(import_name: str) -> str:
     top = import_name.split(".")[0]
-    return IMPORT_TO_DIST.get(import_name) or IMPORT_TO_DIST.get(top) or top
+    resolved = IMPORT_TO_DIST.get(import_name) or IMPORT_TO_DIST.get(top) or top
+    return _normalize_pypi(resolved)
 
 
 def _is_stdlib(name: str) -> bool:

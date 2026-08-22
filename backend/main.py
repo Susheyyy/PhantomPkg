@@ -23,6 +23,7 @@ from parser import parse
 from registry import batch_lookup
 from similarity import batch_check_similarity
 from classifier import classify_batch
+from whitelist import build_whitelist_set, filter_whitelisted
 
 app = FastAPI(
     title="PhantomPkg - Slopsquatting Detector",
@@ -46,6 +47,7 @@ class ScanRequest(BaseModel):
     language: Literal["python", "javascript", "typescript"] = "python"
     file_type: Literal["source", "requirements"] = "source"
     content: str
+    whitelist: list[str] = []
 
 
 class Finding(BaseModel):
@@ -83,6 +85,11 @@ async def scan(request: ScanRequest) -> ScanResponse:
         language=request.language,
         file_type=request.file_type,
     )
+    if not parsed:
+        return ScanResponse(status="success", findings=[])
+
+    whitelist_set = build_whitelist_set(request.whitelist)
+    parsed = filter_whitelisted(parsed, whitelist_set)
     if not parsed:
         return ScanResponse(status="success", findings=[])
 

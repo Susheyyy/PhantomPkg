@@ -24,7 +24,8 @@ const TIMEOUT_MS = 10_000;
 
 export async function scanContent(
   content: string,
-  fileType: "source" | "requirements" = "source"
+  fileType: "source" | "requirements" = "source",
+  whitelist: string[] = []
 ): Promise<ScanResponse | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -37,6 +38,7 @@ export async function scanContent(
         language: "python",
         file_type: fileType,
         content,
+        whitelist,
       }),
       signal: controller.signal,
     });
@@ -63,3 +65,4 @@ export async function scanContent(
     clearTimeout(timer);
   }
 }
+

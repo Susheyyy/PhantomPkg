@@ -22,6 +22,7 @@ from typing import TypedDict
 import httpx
 
 TIMEOUT_SECONDS: float = 3.0
+CONCURRENCY_LIMIT: int = 10
 PYPI_BASE = "https://pypi.org/pypi/{pkg}/json"
 NPM_BASE  = "https://registry.npmjs.org/{pkg}"
 
@@ -116,18 +117,21 @@ async def batch_lookup(
     packages: list[dict],
 ) -> list[RegistryResult]:
     """
-    Fire all registry requests concurrently.
+    Fire registry requests with bounded concurrency.
     packages: list of {"package": str, "ecosystem": str, ...}
     """
+    semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
     timeout = httpx.Timeout(TIMEOUT_SECONDS, connect=TIMEOUT_SECONDS)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        tasks = []
-        for pkg_info in packages:
+
+    async def _throttled(client: httpx.AsyncClient, pkg_info: dict) -> RegistryResult:
+        async with semaphore:
             ecosystem = pkg_info.get("ecosystem", "pypi")
             name = pkg_info["package"]
             if ecosystem == "npm":
-                tasks.append(_lookup_npm(client, name))
-            else:
-                tasks.append(_lookup_pypi(client, name))
+                return await _lookup_npm(client, name)
+            return await _lookup_pypi(client, name)
+
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        tasks = [_throttled(client, p) for p in packages]
         results = await asyncio.gather(*tasks, return_exceptions=False)
     return list(results)
