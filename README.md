@@ -42,6 +42,89 @@ Packages are dynamically classified into 4 actionable risk tiers:
 
 ---
 
+## System Architecture
+
+```mermaid
+flowchart TD
+
+    subgraph Client["1. VS CODE EXTENSION"]
+        direction TB
+
+        subgraph Inputs["Input Sources"]
+            I1["Active Editor<br/>.py / .js / .ts"]
+            I2["requirements.txt"]
+            I3["package.json"]
+        end
+
+        subgraph Features["Extension Features"]
+            F1["Manual Scan"]
+            F2["Scan On Save"]
+            F3["Diagnostics / Squiggles"]
+            F4["Hover Provider & Status Bar"]
+        end
+
+        Inputs --> Features
+    end
+
+    subgraph Backend["2. FASTAPI BACKEND"]
+        direction LR
+
+        B1["Language & Ecosystem Detection"]
+        B2["AST / Regex Package Extractor"]
+        B3["Import-to-Distribution Mapping"]
+        B4["Async Batch Lookup Engine"]
+        B5["Multi-Signal Risk Scoring"]
+
+        B1 --> B2
+        B2 --> B3
+        B3 --> B4
+        B4 --> B5
+    end
+
+    subgraph Registries["3. EXTERNAL REGISTRIES"]
+        direction TB
+
+        R1["PyPI JSON API<br/>/pypi/{package}/json"]
+        R2["npm Registry API<br/>/{package}"]
+    end
+
+    Client -->|"POST /api/scan"| Backend
+    Backend -->|"JSON Findings"| Client
+
+    B4 <-->|"Async HTTP Requests"| R1
+    B4 <-->|"Async HTTP Requests"| R2
+```
+---
+
+## Backend Process Flow & Risk Analysis
+
+```mermaid
+flowchart TD
+    A["Input Received: Code / Manifest"] --> B["Language & Ecosystem Detection"]
+    B --> C["Extract Package Names via AST / Regex"]
+    C --> D["Apply Import Mapping Rules<br/><i>(e.g., cv2 → opencv-python)</i>"]
+    D --> E["Deduplicate & Store Line/Col Offsets"]
+    E --> F["Async Query to Registries<br/><i>(3s Timeout)</i>"]
+    
+    F --> G{"Package Status?"}
+    
+    G -->|"404 Not Found"| H["🔴 DANGER TIER<br/>Non-existent package<br/>(High hallucination risk)"]
+    G -->|"200 OK"| I{"First Publish Date Check"}
+    G -->|"Timeout / 5xx Error"| J["⚪ UNKNOWN TIER<br/>Could not verify via API"]
+    
+    I -->|"< 60 Days (Weighted)"| K["🟡 SUSPICIOUS TIER<br/>Recent publish / Risk signals"]
+    I -->|"> 60 Days"| L["🟢 LOW RISK / ESTABLISHED<br/>Verified history"]
+    
+    H --> M["Aggregate & Sort Results by Severity"]
+    K --> M
+    L --> M
+    J --> M
+    
+    M --> N["Return JSON Findings to VS Code"]
+    
+```
+---
+
 ## Setup Instructions
 
 ### Prerequisites
