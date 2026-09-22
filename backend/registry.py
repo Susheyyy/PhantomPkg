@@ -33,6 +33,8 @@ class RegistryResult(TypedDict):
     exists: object   # bool | None
     age_days: object  # int | None
     first_release: object  # str | None
+    description: object # str | None
+
 
 
 def _age_days(iso_date: str) -> int:
@@ -76,12 +78,15 @@ async def _lookup_pypi(client: httpx.AsyncClient, package: str) -> RegistryResul
         else:
             earliest = None
             age = None
+        
+        description = data.get("info", {}).get("summary")
     except Exception:
         earliest = None
         age = None
+        description = None
 
     return RegistryResult(package=package, ecosystem="pypi",
-                          exists=True, age_days=age, first_release=earliest)
+                          exists=True, age_days=age, first_release=earliest, description=description)
 
 
 async def _lookup_npm(client: httpx.AsyncClient, package: str) -> RegistryResult:
@@ -105,12 +110,14 @@ async def _lookup_npm(client: httpx.AsyncClient, package: str) -> RegistryResult
         time_obj: dict = data.get("time", {})
         created: str | None = time_obj.get("created")
         age = _age_days(created) if created else None
+        description = data.get("description")
     except Exception:
         created = None
         age = None
+        description = None
 
     return RegistryResult(package=package, ecosystem="npm",
-                          exists=True, age_days=age, first_release=created)
+                          exists=True, age_days=age, first_release=created, description=description)
 
 
 async def batch_lookup(

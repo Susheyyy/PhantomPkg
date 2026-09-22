@@ -33,50 +33,16 @@ class PackageInfo(TypedDict):
     end_column: int
 
 
-# Import-name -> PyPI distribution-name mapping
-IMPORT_TO_DIST: dict[str, str] = {
-    "cv2":           "opencv-python",
-    "cv2.cv2":       "opencv-python",
-    "PIL":           "Pillow",
-    "sklearn":       "scikit-learn",
-    "skimage":       "scikit-image",
-    "yaml":          "PyYAML",
-    "bs4":           "beautifulsoup4",
-    "dotenv":        "python-dotenv",
-    "jwt":           "PyJWT",
-    "dateutil":      "python-dateutil",
-    "Crypto":        "pycryptodome",
-    "OpenSSL":       "pyOpenSSL",
-    "usb":           "pyusb",
-    "serial":        "pyserial",
-    "gi":            "PyGObject",
-    "wx":            "wxPython",
-    "magic":         "python-magic",
-    "attr":          "attrs",
-    "pkg_resources": "setuptools",
-    "setuptools":    "setuptools",
-    "flask":         "Flask",
-    "django":        "Django",
-    "fastapi":       "fastapi",
-    "starlette":     "starlette",
-    "aiohttp":       "aiohttp",
-    "httpx":         "httpx",
-    "requests":      "requests",
-    "urllib3":       "urllib3",
-    "httplib2":      "httplib2",
-    "uvicorn":       "uvicorn",
-    "gunicorn":      "gunicorn",
-    "psycopg2":      "psycopg2-binary",
-    "pymysql":       "PyMySQL",
-    "sqlalchemy":    "SQLAlchemy",
-    "motor":         "motor",
-    "pymongo":       "pymongo",
-    "redis":         "redis",
-    "boto3":         "boto3",
-    "botocore":      "botocore",
-    "pytest":        "pytest",
-    "mock":          "mock",
-}
+import json
+from pathlib import Path
+
+# Load Import-name -> PyPI distribution-name mapping from aliases.json
+try:
+    _aliases_path = Path(__file__).parent / "aliases.json"
+    with _aliases_path.open("r", encoding="utf-8") as f:
+        IMPORT_TO_DIST: dict[str, str] = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    IMPORT_TO_DIST: dict[str, str] = {}
 
 _STDLIB: frozenset[str] = frozenset({
     "abc", "ast", "asyncio", "base64", "builtins", "cgi", "cgitb",
@@ -239,25 +205,40 @@ _NODE_STDLIB: frozenset[str] = frozenset({
 })
 
 
+import subprocess
+import json
+from pathlib import Path
+
 def parse_js_source(content: str) -> list[PackageInfo]:
     results: list[PackageInfo] = []
-    lines = content.splitlines()
-    for lineno, line in enumerate(lines, start=1):
-        for m in _JS_IMPORT_RE.finditer(line):
-            raw = m.group("esm") or m.group("cjs")
-            if not raw:
-                continue
-            if raw.startswith("@"):
-                parts = raw.split("/")
-                pkg = "/".join(parts[:2]) if len(parts) >= 2 else raw
-            else:
-                pkg = raw.split("/")[0]
-            if pkg in _NODE_STDLIB:
-                continue
-            results.append(PackageInfo(
-                package=pkg, import_name=raw, ecosystem="npm",
-                line=lineno, start_column=m.start(), end_column=m.end(),
-            ))
+    script_path = Path(__file__).parent / "parse_ts.js"
+    try:
+        proc = subprocess.run(
+            ["node", str(script_path)],
+            input=content,
+            text=True,
+            capture_output=True,
+            check=True
+        )
+        extracted = json.loads(proc.stdout)
+    except Exception:
+        return []
+
+    for item in extracted:
+        raw = item.get("raw")
+        if not raw:
+            continue
+        if raw.startswith("@"):
+            parts = raw.split("/")
+            pkg = "/".join(parts[:2]) if len(parts) >= 2 else raw
+        else:
+            pkg = raw.split("/")[0]
+        if pkg in _NODE_STDLIB:
+            continue
+        results.append(PackageInfo(
+            package=pkg, import_name=raw, ecosystem="npm",
+            line=item["line"], start_column=item["start_column"], end_column=item["end_column"],
+        ))
     return results
 
 

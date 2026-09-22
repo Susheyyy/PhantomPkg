@@ -1,13 +1,3 @@
-/**
- * extension/src/statusBar.ts
- * Manages the PhantomPkg status bar item (bottom-left of VS Code).
- *
- * States:
- *   scanning  → "$(sync~spin) PhantomPkg: Scanning..."
- *   results   → "🔴 N  🟠 N  🟡 N  ⚪ N"  (all 4 tiers always shown)
- *   offline   → "⚠️ Scanner Offline"
- */
-
 import * as vscode from "vscode";
 import type { Finding } from "./api";
 
@@ -45,7 +35,6 @@ export function showResults(findings: Finding[]): void {
     item.text = "$(shield) PhantomPkg: No imports found";
     item.backgroundColor = undefined;
   } else {
-    // Always show all 4 counts for instant visual overview.
     item.text = `$(shield) 🔴 ${dangerCount}  🟠 ${suspCount}  🟡 ${lowRiskCount}  ⚪ ${unknownCount}`;
     item.backgroundColor =
       dangerCount > 0

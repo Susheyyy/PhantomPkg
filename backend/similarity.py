@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 backend/similarity.py - Person B
 Fuzzy-match package names against a seed list of popular packages.
@@ -9,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# pyrefly: ignore [missing-import]
 from rapidfuzz import fuzz, process
 
 SIMILARITY_THRESHOLD: float = 85.0

@@ -29,6 +29,7 @@ class ClassifiedFinding:
     line: int
     start_column: int
     end_column: int
+    description: str | None
 
 
 def classify(
@@ -43,6 +44,7 @@ def classify(
     line: int,
     start_column: int,
     end_column: int,
+    description: object,     # str | None
 ) -> ClassifiedFinding:
     """Apply PROJECT_CONTEXT Section 4 risk rules to produce a ClassifiedFinding."""
 
@@ -52,6 +54,7 @@ def classify(
             package=package, ecosystem=ecosystem, risk_level="unknown",
             reason="Registry lookup failed or timed out. Could not verify package.",
             line=line, start_column=start_column, end_column=end_column,
+            description=None,
         )
 
     # Tier: Danger
@@ -63,6 +66,7 @@ def classify(
                 "(Possible hallucination/slopsquatting target)."
             ),
             line=line, start_column=start_column, end_column=end_column,
+            description=None,
         )
 
     # Package exists - evaluate age + similarity
@@ -85,6 +89,7 @@ def classify(
             package=package, ecosystem=ecosystem, risk_level="suspicious",
             reason=" ".join(suspicious_reasons),
             line=line, start_column=start_column, end_column=end_column,
+            description=description if isinstance(description, str) else None,
         )
 
     # Tier: Low Risk
@@ -93,6 +98,7 @@ def classify(
         package=package, ecosystem=ecosystem, risk_level="low_risk",
         reason=f"Verified package. First published {age_str} ago.",
         line=line, start_column=start_column, end_column=end_column,
+        description=description if isinstance(description, str) else None,
     )
 
 
@@ -115,6 +121,7 @@ def classify_batch(
             line=pkg_info["line"],
             start_column=pkg_info["start_column"],
             end_column=pkg_info["end_column"],
+            description=reg.get("description"),
         )
         findings.append(finding)
     return findings

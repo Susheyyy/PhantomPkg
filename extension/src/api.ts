@@ -1,17 +1,14 @@
-/**
- * extension/src/api.ts
- * Calls the PhantomPkg FastAPI backend at http://127.0.0.1:8000/api/scan.
- * Returns null on any network/backend failure (caller handles gracefully).
- */
+import * as vscode from "vscode";
 
 export interface Finding {
   package: string;
   ecosystem: string;
   risk_level: "danger" | "suspicious" | "low_risk" | "unknown";
   reason: string;
-  line: number;        // 1-based (from ast.lineno)
-  start_column: number; // 0-based (from ast.col_offset)
-  end_column: number;   // 0-based, exclusive
+  line: number;        
+  start_column: number; 
+  end_column: number;   
+  description?: string;
 }
 
 export interface ScanResponse {
@@ -19,50 +16,63 @@ export interface ScanResponse {
   findings: Finding[];
 }
 
-const BACKEND_URL = "http://127.0.0.1:8000/api/scan";
+const BACKEND_URLS = [
+  "http://127.0.0.1:8000/api/scan",
+  "https://phantompkg.onrender.com/api/scan",
+];
 const TIMEOUT_MS = 10_000;
 
 export async function scanContent(
   content: string,
+  language: string = "python",
   fileType: "source" | "requirements" = "source",
   whitelist: string[] = []
 ): Promise<ScanResponse | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const payload = JSON.stringify({
+    language,
+    file_type: fileType,
+    content,
+    whitelist,
+  });
 
-  try {
-    const response = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        language: "python",
-        file_type: fileType,
-        content,
-        whitelist,
-      }),
-      signal: controller.signal,
-    });
+  for (const url of BACKEND_URLS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    if (!response.ok) {
-      console.error(`[PhantomPkg] Backend returned HTTP ${response.status}`);
-      return null;
-    }
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        signal: controller.signal,
+      });
 
-    const data = (await response.json()) as ScanResponse;
-    if (data.status === "error") {
-      console.error("[PhantomPkg] Backend responded with status=error");
-      return null;
+      if (!response.ok) {
+        console.error(`[PhantomPkg] ${url} returned HTTP ${response.status}`);
+        vscode.window.showErrorMessage(`PhantomPkg HTTP ${response.status} from ${url}`);
+        continue;
+      }
+
+      const data = (await response.json()) as ScanResponse;
+      if (data.status === "error") {
+        console.error(`[PhantomPkg] ${url} responded with status=error`);
+        continue;
+      }
+      return data;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        console.error(`[PhantomPkg] ${url} timed out after ${TIMEOUT_MS}ms`);
+        vscode.window.showErrorMessage(`PhantomPkg: Timeout reaching ${url}`);
+      } else {
+        console.error(`[PhantomPkg] ${url} error:`, err);
+        vscode.window.showErrorMessage(`PhantomPkg Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      continue;
+    } finally {
+      clearTimeout(timer);
     }
-    return data;
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      console.error("[PhantomPkg] Request timed out after", TIMEOUT_MS, "ms");
-    } else {
-      console.error("[PhantomPkg] Network error:", err);
-    }
-    return null;
-  } finally {
-    clearTimeout(timer);
   }
+
+  return null;
 }
 

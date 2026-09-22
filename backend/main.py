@@ -58,6 +58,7 @@ class Finding(BaseModel):
     line: int
     start_column: int
     end_column: int
+    description: str | None = None
 
 
 class ScanResponse(BaseModel):
@@ -114,6 +115,7 @@ async def scan(request: ScanRequest) -> ScanResponse:
             line=f.line,
             start_column=f.start_column,
             end_column=f.end_column,
+            description=f.description,
         )
         for f in classified
     ]

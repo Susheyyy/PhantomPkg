@@ -40,8 +40,6 @@ export function getDiagnosticCollection(): vscode.DiagnosticCollection {
   return _collection;
 }
 
-// ─── Decoration types (background highlights) ────────────────────────────────
-
 const _decorations: Record<Finding["risk_level"], vscode.TextEditorDecorationType> = {
   danger: vscode.window.createTextEditorDecorationType({
     backgroundColor: "rgba(255, 0, 0, 0.18)",
@@ -65,7 +63,7 @@ export function applyDecorations(
   editor: vscode.TextEditor,
   findings: Finding[]
 ): void {
-  // Group findings by risk tier.
+
   const groups: Record<Finding["risk_level"], vscode.Range[]> = {
     danger: [],
     suspicious: [],
@@ -83,7 +81,6 @@ export function applyDecorations(
     );
   }
 
-  // Apply each decoration type (clears previous ranges for that type automatically).
   for (const tier of Object.keys(groups) as Finding["risk_level"][]) {
     editor.setDecorations(_decorations[tier], groups[tier]);
   }
@@ -117,7 +114,6 @@ export function applyDiagnostics(
   const collection = getDiagnosticCollection();
 
   const diagnostics: vscode.Diagnostic[] = findings.map((f) => {
-    // Backend line is 1-based; VS Code needs 0-based.
     const line = Math.max(0, f.line - 1);
     const startChar = f.start_column;
     const endChar = f.end_column;
@@ -134,7 +130,6 @@ export function applyDiagnostics(
     return diag;
   });
 
-  // Replace all previous diagnostics for this file atomically.
   collection.set(document.uri, diagnostics);
 }
 
